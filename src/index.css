@@ -1,0 +1,137 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+  Inshirah Class Fund — design tokens
+  Sundarbans green for trust, muted brass for the one highlight, cool paper white.
+*/
+@theme {
+  --font-sans: "Instrument Sans", "Hind Siliguri", ui-sans-serif, system-ui, sans-serif;
+  --font-bangla: "Hind Siliguri", "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+
+  --color-paper: #f5f7f4;
+  --color-surface: #ffffff;
+  --color-sunken: #edf1ee;
+  --color-line: #dde4df;
+  --color-line-strong: #c6d1ca;
+  --color-ink: #14231d;
+  --color-ink-2: #3f5048;
+  --color-ink-3: #6b7b73;
+
+  --color-brand: #11624b;
+  --color-brand-strong: #0b4a38;
+  --color-brand-soft: #e3f0ea;
+  --color-brand-ink: #f5f7f4;
+
+  --color-brass: #b8893a;
+  --color-brass-soft: #f6eedd;
+
+  --color-good: #1f7a4d;
+  --color-good-soft: #e2f2e8;
+  --color-warn: #a86b12;
+  --color-warn-soft: #fbefd9;
+  --color-bad: #b4413c;
+  --color-bad-soft: #f8e4e2;
+  --color-info: #2e5f8a;
+  --color-info-soft: #e3edf6;
+
+  --radius-ctl: 8px;
+  --radius-card: 14px;
+  --shadow-card: 0 1px 0 rgb(20 35 29 / 0.04), 0 1px 3px rgb(20 35 29 / 0.06);
+  --shadow-pop: 0 12px 32px -8px rgb(20 35 29 / 0.25), 0 2px 6px rgb(20 35 29 / 0.08);
+}
+
+.dark {
+  --color-paper: #0e1714;
+  --color-surface: #15211c;
+  --color-sunken: #101b17;
+  --color-line: #24342d;
+  --color-line-strong: #33463d;
+  --color-ink: #e7eeea;
+  --color-ink-2: #b5c3bc;
+  --color-ink-3: #82938b;
+
+  --color-brand: #3fbf94;
+  --color-brand-strong: #6bd4ae;
+  --color-brand-soft: #173a2e;
+  --color-brand-ink: #0b1a14;
+
+  --color-brass: #d9ae5f;
+  --color-brass-soft: #362b17;
+
+  --color-good: #5cc98f;
+  --color-good-soft: #163527;
+  --color-warn: #e3a64a;
+  --color-warn-soft: #3a2a12;
+  --color-bad: #ec7a73;
+  --color-bad-soft: #3d1c1a;
+  --color-info: #7fb2e0;
+  --color-info-soft: #172a3b;
+
+  --shadow-card: 0 1px 0 rgb(0 0 0 / 0.2);
+  --shadow-pop: 0 16px 40px -8px rgb(0 0 0 / 0.6);
+  color-scheme: dark;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  html:lang(bn) body {
+    font-family: var(--font-bangla);
+  }
+  body {
+    @apply bg-paper text-ink antialiased;
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.55;
+    min-height: 100dvh;
+  }
+  h1, h2, h3 {
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  ::selection {
+    background: var(--color-brand-soft);
+  }
+}
+
+@utility num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+@utility scrollbar-thin {
+  scrollbar-width: thin;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media print {
+  .no-print { display: none !important; }
+  body { background: #fff !important; color: #000 !important; font-size: 12px; }
+  .print-card { box-shadow: none !important; border: 1px solid #ccc !important; }
+}
+
+@keyframes fade-in { from { opacity: 0 } to { opacity: 1 } }
+@keyframes sheet-in { from { transform: translateY(24px); opacity: 0 } to { transform: none; opacity: 1 } }
+@keyframes pop-in { from { opacity: 0; transform: translate(-50%, -48%) scale(.98) } to { opacity: 1; transform: translate(-50%, -50%) scale(1) } }
+@keyframes rise { from { transform: scaleY(0) } to { transform: scaleY(1) } }
+
+/* Printing a receipt from its dialog prints only the receipt */
+@media print {
+  body:has(#receipt) #root { display: none !important; }
+  body:has(#receipt) [role="dialog"] { position: static !important; transform: none !important; box-shadow: none !important; max-height: none !important; }
+  body:has(#receipt) [role="dialog"] button { display: none !important; }
+}
