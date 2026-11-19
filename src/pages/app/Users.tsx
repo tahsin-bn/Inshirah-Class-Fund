@@ -67,7 +67,7 @@ export default function Users() {
                 {!u.is_active && <Badge>{t('st_inactive')}</Badge>}
                 <RoleBadge role={u.role} />
                 {!me && (
-                  <div className="flex gap-1">
+                  <div className="flex w-full justify-end gap-1 sm:w-auto">
                     <Button size="sm" variant="secondary" onClick={() => setEditing(u)}><ShieldCheck />{t('changeRole')}</Button>
                     <Button size="icon-sm" variant="ghost" aria-label={t('resetPassword')} onClick={() => setResetting(u)}><KeyRound /></Button>
                   </div>

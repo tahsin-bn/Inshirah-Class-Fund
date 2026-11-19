@@ -15,7 +15,7 @@ import { StatusBadge } from '@/components/ui/badge';
 import { CategoryBars } from '@/components/charts/CategoryBars';
 
 export default function PublicDashboard() {
-  const { t, lang, setLang, money, num, date, month: monthLabel, pick, dateTime } = useI18n();
+  const { t, lang, setLang, money, num, year, date, month: monthLabel, pick, dateTime } = useI18n();
   const { theme, toggle } = useTheme();
   const { session } = useAuth();
   const { data, isLoading, error, refetch } = usePublicDashboard();
@@ -37,7 +37,7 @@ export default function PublicDashboard() {
         <div className="mx-auto flex h-14 max-w-[1120px] items-center gap-2 px-4 sm:px-6">
           <Link to="/" className="flex items-center gap-2.5">
             <Logo small />
-            <span className="text-[15px] font-semibold">{data?.app_name ?? t('appName')}</span>
+            <span className="max-w-[44vw] truncate text-[15px] font-semibold sm:max-w-none">{data?.app_name ?? t('appName')}</span>
           </Link>
           <div className="flex-1" />
           <Button variant="ghost" size="sm" onClick={() => setLang(lang === 'bn' ? 'en' : 'bn')}><Globe /><span className="hidden sm:inline">{t('language')}</span></Button>
@@ -100,7 +100,7 @@ export default function PublicDashboard() {
                               style={{ height: h }}
                             />
                             <span className={cn('text-[12px]', active ? 'font-semibold text-ink' : 'text-ink-3')}>{monthLabel(m).replace(/\s\S+$/, '')}</span>
-                            <span className="num -mt-1 text-[11px] text-ink-3">{num(m.year)}</span>
+                            <span className="num -mt-1 text-[11px] text-ink-3">{year(m.year)}</span>
                           </button>
                         );
                       })}

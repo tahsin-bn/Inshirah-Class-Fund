@@ -109,7 +109,7 @@ function ManagerDashboard() {
       {!cur ? (
         <Card><EmptyState icon={<CalendarPlus />} title={t('noMonthCta')} action={can('admin') ? <Link to="/app/months"><Button>{t('newMonth')}</Button></Link> : undefined} /></Card>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Stat label={`${t('expected')} · ${month(cur)}`} value={money(cur.expected)} sub={`${num(cur.students_due)} ${t('navStudents').toLowerCase()}`} />
           <Stat label={t('collected')} value={money(cur.collected)} tone="brand" sub={<Progress value={pct(cur.collected, cur.expected)} className="mt-2" />} />
           <Stat label={t('remaining')} value={money(cur.outstanding)} tone={cur.outstanding > 0 ? 'warn' : 'good'} sub={`${num(cur.unpaid_count)} ${t('st_unpaid')} · ${num(cur.partial_count)} ${t('st_partial')}`} />
@@ -225,7 +225,7 @@ function CollectorDashboard() {
                   <Link to={`/app/students/${s.id}`} className="min-w-0 flex-1 truncate text-[14px] font-medium hover:underline">{s.name}</Link>
                   {st && <StatusBadge status={st.status} />}
                   <span className="num hidden w-20 text-right text-[13px] sm:block">{st ? money(st.remaining) : '—'}</span>
-                  <Button size="sm" variant={st && st.remaining > 0 ? 'primary' : 'ghost'} disabled={!st || st.remaining <= 0} onClick={() => setPay({ open: true, student: s.id })}>
+                  <Button size="sm" variant={st && st.remaining > 0 ? 'secondary' : 'ghost'} disabled={!st || st.remaining <= 0} onClick={() => setPay({ open: true, student: s.id })}>
                     {t('recordPayment')}
                   </Button>
                 </li>

@@ -87,7 +87,7 @@ const schema = z.object({
 });
 
 function CreateMonthDialog({ open, onOpenChange, existing }: { open: boolean; onOpenChange: (o: boolean) => void; existing: string[] }) {
-  const { t, lang, num } = useI18n();
+  const { t, lang, year } = useI18n();
   const now = dhakaNowParts();
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
@@ -128,7 +128,7 @@ function CreateMonthDialog({ open, onOpenChange, existing }: { open: boolean; on
             <Input type="number" {...form.register('year')} className="num" />
           </Field>
         </div>
-        {dup && <p className="text-[13px] text-bad">{lang === 'bn' ? `${monthName(m, lang)} ${num(y)} আগে থেকেই আছে।` : `${monthName(m, lang)} ${y} already exists.`}</p>}
+        {dup && <p className="text-[13px] text-bad">{lang === 'bn' ? `${monthName(m, lang)} ${year(y)} আগে থেকেই আছে।` : `${monthName(m, lang)} ${y} already exists.`}</p>}
         <Field label={t('contribution')} hint={t('perStudent')}>
           <MoneyInput {...form.register('contribution')} />
         </Field>

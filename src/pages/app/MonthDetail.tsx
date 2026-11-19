@@ -159,7 +159,7 @@ export default function MonthDetail() {
                         <td className="px-4 py-2.5"><StatusBadge status={st.status} /></td>
                         <td className="px-4 py-2.5">
                           <div className="flex justify-end gap-1">
-                            {canPay && mine && st.remaining > 0 && <Button size="sm" onClick={() => setPay({ open: true, student: st.student_id })}>{t('recordPayment')}</Button>}
+                            {canPay && mine && st.remaining > 0 && <Button size="sm" variant="secondary" onClick={() => setPay({ open: true, student: st.student_id })}>{t('recordPayment')}</Button>}
                             {isOpen && can('admin', 'treasurer') && !w && st.remaining > 0 && <Button size="sm" variant="ghost" onClick={() => setWaive(st.student_id)}><HandCoins />{t('grantWaiver')}</Button>}
                             {isOpen && can('admin', 'treasurer') && w && <Button size="sm" variant="danger-ghost" onClick={() => setRevoke(w.id)}>{t('revokeWaiver')}</Button>}
                           </div>
