@@ -95,7 +95,7 @@ export const STRINGS = {
   language: ['বাংলা', 'English'],
   signOut: ['Sign out', 'সাইন আউট'],
   signIn: ['Sign in', 'সাইন ইন'],
-  staffSignIn: ['Staff sign in', 'স্টাফ সাইন ইন'],
+  staffSignIn: ['Admin login', 'অ্যাডমিন লগইন'],
   notifications: ['Notifications', 'নোটিফিকেশন'],
   markAllRead: ['Mark all as read', 'সব পড়া হয়েছে'],
   noNotifications: ['You are all caught up.', 'নতুন কোনো নোটিফিকেশন নেই।'],
