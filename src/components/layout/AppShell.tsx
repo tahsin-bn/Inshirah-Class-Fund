@@ -16,6 +16,7 @@ import { RoleBadge } from '@/components/ui/badge';
 import { Dialog } from '@/components/ui/dialog';
 import { NAV } from './nav';
 import { Logo } from './Logo';
+import { Footer } from './Footer';
 
 export function AppShell() {
   const { role, profile } = useAuth();
@@ -31,7 +32,7 @@ export function AppShell() {
       {/* Desktop sidebar */}
       <aside className="no-print sticky top-0 hidden h-dvh flex-col overflow-hidden bg-nav text-white lg:flex">
         <Link to="/app" className="flex flex-col items-center gap-2 px-5 pt-7 pb-6 text-center">
-          <Logo className="size-12" />
+          <Logo tone="white" className="h-14" />
           <div className="min-w-0">
             <div className="truncate text-[18px] font-bold tracking-[-0.01em]">{t('appName')}</div>
             <div className="truncate text-[12px] text-white/60">{settings?.class_name}</div>
@@ -74,6 +75,7 @@ export function AppShell() {
         <TopBar onMenu={() => setMoreOpen(true)} />
         <main className="mx-auto w-full max-w-[1240px] flex-1 px-4 pt-5 pb-28 sm:px-6 lg:px-8 lg:pb-10" key={loc.pathname}>
           <Outlet />
+          <Footer compact className="mt-10" />
         </main>
       </div>
 
@@ -133,7 +135,7 @@ function TopBar({ onMenu }: { onMenu: () => void }) {
   return (
     <header className="no-print sticky top-0 z-30 flex h-16 items-center gap-2 border-b border-line/70 bg-paper/85 px-4 backdrop-blur sm:px-6 lg:px-8">
       <Link to="/app" className="flex items-center gap-2 lg:hidden">
-        <Logo small />
+        <Logo small className="h-6" />
         <span className="text-[15px] font-semibold">{t('appName')}</span>
       </Link>
       <div className="flex-1" />

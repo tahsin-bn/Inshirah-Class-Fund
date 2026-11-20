@@ -8,6 +8,7 @@ import { useI18n } from '@/i18n/I18nProvider';
 import { cn } from '@/lib/utils';
 import { pct } from '@/lib/format';
 import { Logo } from '@/components/layout/Logo';
+import { Footer } from '@/components/layout/Footer';
 import { Button } from '@/components/ui/button';
 import { Card, CardBody, CardHeader } from '@/components/ui/card';
 import { ErrorState, Skeleton } from '@/components/ui/misc';
@@ -224,6 +225,7 @@ export default function PublicDashboard() {
             </p>
           </>
         )}
+        <Footer className="mt-6" />
       </main>
     </div>
   );
