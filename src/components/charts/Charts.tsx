@@ -1,5 +1,6 @@
-import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, ReferenceLine } from 'recharts';
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, ReferenceLine } from 'recharts';
 import { useI18n } from '@/i18n/I18nProvider';
+import { toBnDigits } from '@/lib/format';
 
 
 const axis = { stroke: 'var(--color-ink-3)', fontSize: 12, tickLine: false, axisLine: false } as const;
@@ -59,6 +60,42 @@ export function BalanceTrendChart({ data, height = 220 }: { data: MonthPoint[]; 
           <Tooltip content={<ChartTooltip />} />
           <Line type="monotone" dataKey="balance" name={t('closingBalance')} stroke="var(--color-brand)" strokeWidth={2.5} dot={{ r: 3, fill: 'var(--color-brand)' }} activeDot={{ r: 5 }} />
         </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+/** Smooth income vs expense areas — green rising, red falling — as on the dashboard mockup. */
+export function IncomeExpenseArea({ data, height = 230 }: { data: MonthPoint[]; height?: number }) {
+  const { t, num, lang } = useI18n();
+  const short = (v: number) => {
+    if (Math.abs(v) < 1000) return num(v);
+    const k = (v / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+    return lang === 'bn' ? toBnDigits(k) : k;
+  };
+  return (
+    <div style={{ height }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={data} margin={{ top: 10, right: 12, left: -8, bottom: 0 }}>
+          <defs>
+            <linearGradient id="ar-in" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="var(--color-good)" stopOpacity={0.28} />
+              <stop offset="1" stopColor="var(--color-good)" stopOpacity={0} />
+            </linearGradient>
+            <linearGradient id="ar-out" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="var(--color-bad)" stopOpacity={0.22} />
+              <stop offset="1" stopColor="var(--color-bad)" stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid vertical={false} stroke="var(--color-line)" strokeDasharray="3 4" />
+          <XAxis dataKey="label" {...axis} dy={6} />
+          <YAxis {...axis} tickFormatter={short} width={44} />
+          <Tooltip content={<ChartTooltip />} cursor={{ stroke: 'var(--color-line-strong)' }} />
+          <Area type="monotone" dataKey="income" name={t('income')} stroke="var(--color-good)" strokeWidth={2.5} fill="url(#ar-in)"
+            dot={{ r: 4, fill: 'var(--color-good)', stroke: 'var(--color-surface)', strokeWidth: 2 }} activeDot={{ r: 6 }} animationDuration={1100} />
+          <Area type="monotone" dataKey="expenses" name={t('expense')} stroke="var(--color-bad)" strokeWidth={2.5} fill="url(#ar-out)"
+            dot={{ r: 4, fill: 'var(--color-bad)', stroke: 'var(--color-surface)', strokeWidth: 2 }} activeDot={{ r: 6 }} animationDuration={1100} />
+        </AreaChart>
       </ResponsiveContainer>
     </div>
   );

@@ -4,72 +4,84 @@
 
 /*
   Inshirah Class Fund — design tokens
-  Sundarbans green for trust, muted brass for the one highlight, cool paper white.
+  Night-navy frame, indigo-violet for action, soft pastel cards for money.
 */
 @theme {
-  --font-sans: "Instrument Sans", "Hind Siliguri", ui-sans-serif, system-ui, sans-serif;
-  --font-bangla: "Hind Siliguri", "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Plus Jakarta Sans", "Hind Siliguri", ui-sans-serif, system-ui, sans-serif;
+  --font-bangla: "Hind Siliguri", "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
 
-  --color-paper: #f5f7f4;
+  --color-paper: #f3f5fb;
   --color-surface: #ffffff;
-  --color-sunken: #edf1ee;
-  --color-line: #dde4df;
-  --color-line-strong: #c6d1ca;
-  --color-ink: #14231d;
-  --color-ink-2: #3f5048;
-  --color-ink-3: #6b7b73;
+  --color-sunken: #eef1f8;
+  --color-line: #e2e7f2;
+  --color-line-strong: #cbd3e6;
+  --color-ink: #17204a;
+  --color-ink-2: #46507a;
+  --color-ink-3: #7b84a6;
 
-  --color-brand: #11624b;
-  --color-brand-strong: #0b4a38;
-  --color-brand-soft: #e3f0ea;
-  --color-brand-ink: #f5f7f4;
+  --color-brand: #4b55dc;
+  --color-brand-strong: #3940b8;
+  --color-brand-soft: #eceefe;
+  --color-brand-ink: #ffffff;
 
-  --color-brass: #b8893a;
-  --color-brass-soft: #f6eedd;
+  --color-violet: #7b5ce6;
+  --color-violet-soft: #f1ecfe;
 
-  --color-good: #1f7a4d;
-  --color-good-soft: #e2f2e8;
-  --color-warn: #a86b12;
-  --color-warn-soft: #fbefd9;
-  --color-bad: #b4413c;
-  --color-bad-soft: #f8e4e2;
-  --color-info: #2e5f8a;
-  --color-info-soft: #e3edf6;
+  --color-nav: #14224d;
+  --color-nav-2: #1d2f66;
 
-  --radius-ctl: 8px;
-  --radius-card: 14px;
-  --shadow-card: 0 1px 0 rgb(20 35 29 / 0.04), 0 1px 3px rgb(20 35 29 / 0.06);
-  --shadow-pop: 0 12px 32px -8px rgb(20 35 29 / 0.25), 0 2px 6px rgb(20 35 29 / 0.08);
+  --color-brass: #c9973f;
+  --color-brass-soft: #fcf3e2;
+
+  --color-good: #17a36b;
+  --color-good-soft: #e3f6ec;
+  --color-warn: #c27a12;
+  --color-warn-soft: #fdf1dc;
+  --color-bad: #e5484d;
+  --color-bad-soft: #fde8e8;
+  --color-info: #2f80ed;
+  --color-info-soft: #e5effd;
+
+  --radius-ctl: 10px;
+  --radius-card: 18px;
+  --shadow-card: 0 1px 2px rgb(23 32 74 / 0.04), 0 6px 18px -8px rgb(23 32 74 / 0.10);
+  --shadow-pop: 0 16px 40px -10px rgb(23 32 74 / 0.28), 0 2px 6px rgb(23 32 74 / 0.08);
 }
 
 .dark {
-  --color-paper: #0e1714;
-  --color-surface: #15211c;
-  --color-sunken: #101b17;
-  --color-line: #24342d;
-  --color-line-strong: #33463d;
-  --color-ink: #e7eeea;
-  --color-ink-2: #b5c3bc;
-  --color-ink-3: #82938b;
+  --color-paper: #0c1124;
+  --color-surface: #141a33;
+  --color-sunken: #10152b;
+  --color-line: #252d4c;
+  --color-line-strong: #34406a;
+  --color-ink: #e8ebf8;
+  --color-ink-2: #b3badb;
+  --color-ink-3: #7f88ae;
 
-  --color-brand: #3fbf94;
-  --color-brand-strong: #6bd4ae;
-  --color-brand-soft: #173a2e;
-  --color-brand-ink: #0b1a14;
+  --color-brand: #8e95ff;
+  --color-brand-strong: #b0b5ff;
+  --color-brand-soft: #262d60;
+  --color-brand-ink: #0c1124;
 
-  --color-brass: #d9ae5f;
-  --color-brass-soft: #362b17;
+  --color-violet: #b29bff;
+  --color-violet-soft: #2c2556;
 
-  --color-good: #5cc98f;
-  --color-good-soft: #163527;
-  --color-warn: #e3a64a;
+  --color-nav: #0a0f22;
+  --color-nav-2: #141c3c;
+
+  --color-brass: #e2b765;
+  --color-brass-soft: #3a2f17;
+
+  --color-good: #4fd197;
+  --color-good-soft: #123528;
+  --color-warn: #eab055;
   --color-warn-soft: #3a2a12;
-  --color-bad: #ec7a73;
-  --color-bad-soft: #3d1c1a;
-  --color-info: #7fb2e0;
-  --color-info-soft: #172a3b;
+  --color-bad: #ff7b7f;
+  --color-bad-soft: #42191d;
+  --color-info: #79b0ff;
+  --color-info-soft: #16294a;
 
-  --shadow-card: 0 1px 0 rgb(0 0 0 / 0.2);
+  --shadow-card: 0 1px 0 rgb(0 0 0 / 0.25);
   --shadow-pop: 0 16px 40px -8px rgb(0 0 0 / 0.6);
   color-scheme: dark;
 }
@@ -145,8 +157,3 @@
 }
 @keyframes wish-in { from { opacity: 0; transform: translateY(10px) scale(.985) } to { opacity: 1; transform: none } }
 
-/* faint eight-point star lattice for the public hero */
-.hero-pattern {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='56' viewBox='0 0 56 56'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='.07' stroke-width='1'%3E%3Cpath d='M28 10l5.3 12.7L46 28l-12.7 5.3L28 46l-5.3-12.7L10 28l12.7-5.3z'/%3E%3Crect x='17' y='17' width='22' height='22' transform='rotate(45 28 28)'/%3E%3Crect x='17' y='17' width='22' height='22'/%3E%3C/g%3E%3C/svg%3E");
-  background-size: 56px 56px;
-}

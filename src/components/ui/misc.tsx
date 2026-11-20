@@ -3,7 +3,6 @@ import * as SwitchPrimitive from '@radix-ui/react-switch';
 import * as CheckboxPrimitive from '@radix-ui/react-checkbox';
 import { AlertTriangle, Check, ChevronLeft, ChevronRight, Minus } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { initials } from '@/lib/format';
 import { useI18n } from '@/i18n/I18nProvider';
 import { Button } from './button';
 
@@ -94,10 +93,26 @@ export function Checkbox({ checked, onCheckedChange, label, className }: { check
   );
 }
 
+/** Soft pastel tones; the avatar's tint is picked from the name so each person keeps one colour. */
+const AVATAR_TONES = [
+  ['#E3E7FF', '#4B55DC'], ['#EFE6FF', '#7B5CE6'], ['#DFF4EA', '#17A36B'], ['#FFE8DC', '#D9692E'],
+  ['#E0F0FF', '#2F80ED'], ['#FCE7F1', '#C2408A'], ['#FFF2D6', '#B7791F'], ['#DDF5F5', '#14868C'],
+];
+function toneFor(name: string) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return AVATAR_TONES[h % AVATAR_TONES.length];
+}
+
+/** A common person avatar (no photos are stored), tinted per name. */
 export function Avatar({ name, className }: { name: string; className?: string }) {
+  const [bg, fg] = toneFor(name || '?');
   return (
-    <span className={cn('grid size-8 shrink-0 place-items-center rounded-full bg-brand-soft text-[12px] font-semibold text-brand', className)} aria-hidden>
-      {initials(name)}
+    <span className={cn('grid size-8 shrink-0 place-items-center overflow-hidden rounded-full ring-2 ring-surface', className)} style={{ background: bg }} aria-hidden>
+      <svg viewBox="0 0 40 40" className="size-full">
+        <circle cx="20" cy="15.5" r="7" fill={fg} fillOpacity=".9" />
+        <path d="M6.5 37c1.6-7.3 7-11.2 13.5-11.2S31.9 29.7 33.5 37z" fill={fg} fillOpacity=".9" />
+      </svg>
     </span>
   );
 }

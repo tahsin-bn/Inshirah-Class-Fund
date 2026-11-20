@@ -260,4 +260,5 @@ export interface PublicDashboard {
   birthdays_today?: string[] | null;
   birthdays_month?: Array<{ name: string; day: number }> | null;
   today?: string;
+  recent_collections?: Array<{ day: string; amount: number; last_at: string }>;
 }

@@ -1,15 +1,16 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeftRight, Banknote, Cake, CalendarPlus, ChevronRight, Clock, Plus, ReceiptText, Smartphone, Users, Wallet } from 'lucide-react';
+import { ArrowDown, ArrowLeftRight, Banknote, BarChart3, CalendarPlus, ChevronRight, Clock, Plus, ReceiptText, Smartphone, TrendingUp, Users, Wallet } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { useCollectorSummaries, useExpenses, useHandovers, useLedger, useMonthStatuses, usePayments, useTreasury } from '@/lib/queries';
 import { useI18n } from '@/i18n/I18nProvider';
 import { daysUntilBirthday, dhakaToday, pct } from '@/lib/format';
 import { Card, CardBody, CardHeader, Stat } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { EmptyState, ErrorState, PageHeader, PageSkeleton, Progress } from '@/components/ui/misc';
+import { EmptyState, ErrorState, PageSkeleton, Progress } from '@/components/ui/misc';
 import { StatusBadge } from '@/components/ui/badge';
-import { BalanceTrendChart, CategoryBars, IncomeExpenseChart, type MonthPoint } from '@/components/charts/Charts';
+import { BalanceTrendChart, CategoryBars, IncomeExpenseArea, type MonthPoint } from '@/components/charts/Charts';
+import { ActivityList, KitHeader, MonthBirthdayList, MoneyCard, TodayBirthdayCard, WelcomeBanner, percentChange, type ActivityItem } from '@/components/domain/DashboardKit';
 import { useLookups } from '@/components/domain/lookups';
 import { RecordPaymentDialog } from '@/components/domain/RecordPaymentDialog';
 import { cn } from '@/lib/utils';
@@ -34,15 +35,60 @@ function useMonthPoints(): MonthPoint[] {
   );
 }
 
-function Greeting() {
+function Greeting({ action }: { action?: React.ReactNode }) {
   const { profile } = useAuth();
   const { t, date } = useI18n();
+  const first = profile?.full_name?.split(' ')[0] || '';
   return (
-    <PageHeader
-      title={t('goodMorning', { name: profile?.full_name?.split(' ')[0] || '' })}
-      description={date(dhakaToday())}
+    <WelcomeBanner
+      title={first ? t('salamName', { name: first }) : t('salam')}
+      subtitle={<>{t('welcomeSub')}<span className="mt-1 block text-[13px] opacity-75">{date(dhakaToday())}</span></>}
+      action={action}
     />
   );
+}
+
+/** Birthdays of active students: today's names, this month's list and the next one coming up. */
+function useBirthdayData() {
+  const L = useLookups();
+  const { date } = useI18n();
+  return useMemo(() => {
+    const today = dhakaToday();
+    const [, tm, td] = today.split('-').map(Number);
+    const withBday = L.students.filter((s) => s.status === 'active' && s.birthdate);
+    const todayNames = withBday.filter((s) => daysUntilBirthday(s.birthdate!) === 0).map((s) => s.name);
+    const month = withBday
+      .filter((s) => Number(s.birthdate!.slice(5, 7)) === tm)
+      .map((s) => {
+        const day = Number(s.birthdate!.slice(8, 10));
+        return { name: s.name, day, dateLabel: date(`${today.slice(0, 8)}${String(day).padStart(2, '0')}`, false) };
+      })
+      .sort((a, b) => a.day - b.day || a.name.localeCompare(b.name));
+    const upcoming = withBday.map((s) => ({ s, d: daysUntilBirthday(s.birthdate!) })).filter((x) => x.d > 0).sort((a, b) => a.d - b.d)[0];
+    const next = upcoming ? { name: upcoming.s.name, when: date(`${upcoming.s.birthdate!.slice(5) < today.slice(5) ? Number(today.slice(0, 4)) + 1 : today.slice(0, 4)}-${upcoming.s.birthdate!.slice(5)}`, false) } : null;
+    return { todayNames, month, next, todayDay: td };
+  }, [L.students, date]);
+}
+
+function useRecentActivity(): ActivityItem[] {
+  const { t, pick } = useI18n();
+  const L = useLookups();
+  const payments = usePayments({ pageSize: 8 });
+  const expenses = useExpenses();
+  return useMemo(() => {
+    const pay: ActivityItem[] = (payments.data?.rows ?? []).map((p) => ({
+      id: p.id,
+      kind: p.amount >= 0 ? 'in' : 'out',
+      label: `${p.amount >= 0 ? t('income') : t('reversal')} · ${L.studentById.get(p.student_id)?.name ?? ''}`,
+      amount: Math.abs(p.amount),
+      at: p.created_at,
+    }));
+    const exp: ActivityItem[] = (expenses.data ?? []).filter((e) => e.status === 'approved').slice(0, 8).map((e) => {
+      const c = L.categoryById.get(e.category_id);
+      return { id: e.id, kind: 'out', label: `${t('expense')} (${c ? pick(c.name_en, c.name_bn) : e.title}) · ${e.title}`, amount: e.amount, at: e.decided_at ?? e.created_at };
+    });
+    return [...pay, ...exp].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 6);
+  }, [payments.data, expenses.data, L.studentById, L.categoryById, t, pick]);
 }
 
 function ManagerDashboard() {
@@ -54,6 +100,8 @@ function ManagerDashboard() {
   const handovers = useHandovers();
   const L = useLookups();
   const points = useMonthPoints();
+  const bdays = useBirthdayData();
+  const activity = useRecentActivity();
   const [payOpen, setPayOpen] = useState(false);
 
   if (ledger.isLoading || treasury.isLoading) return <PageSkeleton />;
@@ -61,6 +109,7 @@ function ManagerDashboard() {
 
   const rows = ledger.data ?? [];
   const cur = [...rows].reverse().find((r) => r.status === 'open') ?? rows[rows.length - 1];
+  const prev = cur ? rows[rows.indexOf(cur) - 1] : undefined;
   const tp = treasury.data;
   const pendingExp = (expenses.data ?? []).filter((e) => e.status === 'pending');
   const pendingHand = (handovers.data ?? []).filter((h) => h.status === 'pending');
@@ -77,34 +126,45 @@ function ManagerDashboard() {
       )
     : [];
   const activeStudents = L.students.filter((s) => s.status === 'active').length;
-  const birthdaysToday = L.students.filter((s) => s.status === 'active' && s.birthdate && daysUntilBirthday(s.birthdate) === 0);
+  const curIncome = cur ? cur.collected + cur.other_income : 0;
+  const prevIncome = prev ? prev.collected + prev.other_income : undefined;
 
   return (
     <div className="space-y-5">
-      <Greeting />
-
-      {/* Hero: balance + where it sits */}
-      <Card className="overflow-hidden">
-        <div className="grid gap-6 p-5 sm:p-6 lg:grid-cols-[1.3fr_1fr]">
-          <div>
-            <div className="text-[13px] text-ink-3">{t('currentBalance')}</div>
-            <div className={cn('num mt-1 text-[40px] leading-none font-semibold tracking-[-0.02em] sm:text-[48px]', (tp?.balance ?? 0) < 0 && 'text-bad')}>{money(tp?.balance)}</div>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {can('admin', 'treasurer') && (
-                <Button onClick={() => setPayOpen(true)} disabled={!L.openMonths.length}><Plus />{t('recordPayment')}</Button>
-              )}
-              <Link to="/app/expenses"><Button variant="secondary"><Wallet />{t('navExpenses')}</Button></Link>
-              {can('admin') && !rows.length && <Link to="/app/months"><Button variant="secondary"><CalendarPlus />{t('newMonth')}</Button></Link>}
-            </div>
+      <Greeting
+        action={
+          <div className="flex flex-wrap gap-2">
+            {can('admin', 'treasurer') && <Button onClick={() => setPayOpen(true)} disabled={!L.openMonths.length}><Plus />{t('recordPayment')}</Button>}
+            {can('admin') && !rows.length && <Link to="/app/months"><Button variant="secondary"><CalendarPlus />{t('newMonth')}</Button></Link>}
           </div>
-          <dl className="grid grid-cols-2 gap-3 text-[13px]">
-            <Mini icon={<Banknote />} label={t('cashInTreasury')} value={money(tp?.cash_with_treasury)} />
-            <Mini icon={<Users />} label={t('cashWithCollectors')} value={money(tp?.cash_with_collectors)} />
-            <Mini icon={<Smartphone />} label={t('digitalBalance')} value={money(tp?.digital_balance)} />
-            <Mini icon={<ReceiptText />} label={t('totalSpent')} value={money(tp?.approved_expenses)} />
-          </dl>
-        </div>
-      </Card>
+        }
+      />
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <MoneyCard tone="good" icon={<TrendingUp />} label={t('thisMonthIncome')} value={curIncome} delta={percentChange(curIncome, prevIncome)} sub={cur ? month(cur) : undefined} />
+        <MoneyCard tone="bad" icon={<ArrowDown />} label={t('thisMonthExpense')} value={cur?.expenses ?? 0} delta={percentChange(cur?.expenses ?? 0, prev?.expenses)} upIsGood={false} sub={cur ? month(cur) : undefined} />
+        <MoneyCard tone="info" icon={<Wallet />} label={t('currentBalance')} value={tp?.balance ?? 0} sub={`${t('cashInTreasury')} ${money(tp?.cash_with_treasury)}`} />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[1.35fr_1fr]">
+        <TodayBirthdayCard names={bdays.todayNames} next={bdays.next} />
+        <MonthBirthdayList items={bdays.month} todayDay={bdays.todayDay} seeAllTo="/app/birthdays" />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[1fr_1.15fr]">
+        <ActivityList items={activity} seeAllTo="/app/payments" />
+        <Card>
+          <KitHeader
+            icon={<BarChart3 />}
+            title={t('monthlySummary')}
+            action={<Legend />}
+          />
+          <CardBody>{points.length ? <IncomeExpenseArea data={points} /> : <EmptyState title={t('noMonthsYet')} />}</CardBody>
+        </Card>
+      </div>
+
+      {/* Everything that was on the dashboard before, kept below the new overview */}
+      <h2 className="pt-2 text-[17px] font-bold text-ink">{t('fundDetails')}</h2>
 
       {!cur ? (
         <Card><EmptyState icon={<CalendarPlus />} title={t('noMonthCta')} action={can('admin') ? <Link to="/app/months"><Button>{t('newMonth')}</Button></Link> : undefined} /></Card>
@@ -119,13 +179,20 @@ function ManagerDashboard() {
 
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         <Card>
-          <CardHeader title={t('incomeVsExpense')} />
-          <CardBody>{points.length ? <IncomeExpenseChart data={points} /> : <EmptyState title={t('noMonthsYet')} />}</CardBody>
+          <CardHeader title={t('currentBalance')} />
+          <CardBody>
+            <dl className="grid grid-cols-2 gap-3 text-[13px]">
+              <Mini icon={<Banknote />} label={t('cashInTreasury')} value={money(tp?.cash_with_treasury)} />
+              <Mini icon={<Users />} label={t('cashWithCollectors')} value={money(tp?.cash_with_collectors)} />
+              <Mini icon={<Smartphone />} label={t('digitalBalance')} value={money(tp?.digital_balance)} />
+              <Mini icon={<ReceiptText />} label={t('totalSpent')} value={money(tp?.approved_expenses)} />
+            </dl>
+          </CardBody>
         </Card>
         <Card>
           <CardHeader title={t('needsAction')} />
           <CardBody className="space-y-2">
-            {pendingExp.length === 0 && pendingHand.length === 0 && birthdaysToday.length === 0 && (
+            {pendingExp.length === 0 && pendingHand.length === 0 && (
               <p className="py-6 text-center text-[14px] text-ink-3">{t('nothingPending')}</p>
             )}
             {pendingExp.length > 0 && (
@@ -133,9 +200,6 @@ function ManagerDashboard() {
             )}
             {pendingHand.length > 0 && (
               <ActionRow to="/app/handovers" icon={<ArrowLeftRight />} label={t('pendingHandovers')} value={`${num(pendingHand.length)} · ${money(pendingHand.reduce((s, h) => s + h.amount, 0))}`} tone="warn" />
-            )}
-            {birthdaysToday.length > 0 && (
-              <ActionRow to="/app/birthdays" icon={<Cake />} label={t('birthdaysToday')} value={birthdaysToday.map((s) => s.name).join(', ')} tone="brass" />
             )}
           </CardBody>
         </Card>
@@ -154,6 +218,16 @@ function ManagerDashboard() {
 
       <RecordPaymentDialog open={payOpen} onOpenChange={setPayOpen} />
     </div>
+  );
+}
+
+function Legend() {
+  const { t } = useI18n();
+  return (
+    <span className="flex shrink-0 items-center gap-3 text-[13px] text-ink-2">
+      <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-full bg-good" />{t('income')}</span>
+      <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-full bg-bad" />{t('expense')}</span>
+    </span>
   );
 }
 

@@ -27,17 +27,17 @@ export function AppShell() {
   const loc = useLocation();
 
   return (
-    <div className="min-h-dvh lg:grid lg:grid-cols-[248px_1fr]">
+    <div className="min-h-dvh lg:grid lg:grid-cols-[256px_1fr]">
       {/* Desktop sidebar */}
-      <aside className="no-print sticky top-0 hidden h-dvh flex-col border-r border-line bg-surface lg:flex">
-        <Link to="/app" className="flex items-center gap-2.5 px-5 py-5">
-          <Logo />
+      <aside className="no-print sticky top-0 hidden h-dvh flex-col overflow-hidden bg-nav text-white lg:flex">
+        <Link to="/app" className="flex flex-col items-center gap-2 px-5 pt-7 pb-6 text-center">
+          <Logo className="size-12" />
           <div className="min-w-0">
-            <div className="truncate text-[15px] font-semibold text-ink">{t('appName')}</div>
-            <div className="truncate text-[12px] text-ink-3">{settings?.class_name}</div>
+            <div className="truncate text-[18px] font-bold tracking-[-0.01em]">{t('appName')}</div>
+            <div className="truncate text-[12px] text-white/60">{settings?.class_name}</div>
           </div>
         </Link>
-        <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 pb-4" aria-label="Main">
+        <nav className="scrollbar-thin relative z-10 min-h-0 flex-1 space-y-1 overflow-y-auto px-3.5 pb-4" aria-label="Main">
           {items.map((n) => (
             <NavLink
               key={n.to}
@@ -45,21 +45,29 @@ export function AppShell() {
               end={n.to === '/app'}
               className={({ isActive }) =>
                 cn(
-                  'flex h-10 items-center gap-3 rounded-[9px] px-3 text-[14px] font-medium transition-colors',
-                  isActive ? 'bg-brand-soft text-brand' : 'text-ink-2 hover:bg-sunken hover:text-ink',
+                  'flex h-11 items-center gap-3 rounded-[12px] px-3.5 text-[15px] font-medium transition-colors',
+                  isActive
+                    ? 'bg-gradient-to-r from-[#5B6CFF] to-[#6F5CF0] text-white shadow-[0_8px_20px_-8px_rgba(91,108,255,.8)]'
+                    : 'text-white/70 hover:bg-white/8 hover:text-white',
                 )
               }
             >
-              <n.icon className="size-[18px]" aria-hidden />
+              <n.icon className="size-[19px]" aria-hidden />
               {t(n.label)}
             </NavLink>
           ))}
         </nav>
-        <div className="border-t border-line p-3">
-          <Link to="/" className="flex h-9 items-center gap-2 rounded-[9px] px-3 text-[13px] text-ink-3 hover:bg-sunken hover:text-ink">
+        <div className="relative z-10 px-6 pb-3 text-center text-[13px] leading-snug text-white/70 italic [@media(max-height:860px)]:hidden">{t('sidebarMotto')}</div>
+        <div className="relative z-10 px-3.5 pb-4">
+          <Link to="/" className="flex h-10 items-center gap-2 rounded-[12px] px-3.5 text-[13px] text-white/70 hover:bg-white/8 hover:text-white">
             <ExternalLink className="size-4" /> {t('navPublic')}
           </Link>
         </div>
+        {/* soft waves at the foot of the sidebar */}
+        <svg aria-hidden viewBox="0 0 248 140" preserveAspectRatio="none" className="pointer-events-none absolute inset-x-0 bottom-0 h-36 w-full">
+          <path d="M0 60c40-30 90-30 130-8s80 22 118-6v94H0z" fill="#1D2F66" fillOpacity=".7" />
+          <path d="M0 92c50-26 100-18 140 2s70 14 108-6v52H0z" fill="#25397A" fillOpacity=".6" />
+        </svg>
       </aside>
 
       <div className="flex min-w-0 flex-col">
@@ -123,7 +131,7 @@ function TopBar({ onMenu }: { onMenu: () => void }) {
   const { t, lang, setLang } = useI18n();
   const navigate = useNavigate();
   return (
-    <header className="no-print sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-line bg-paper/90 px-4 backdrop-blur sm:px-6 lg:px-8">
+    <header className="no-print sticky top-0 z-30 flex h-16 items-center gap-2 border-b border-line/70 bg-paper/85 px-4 backdrop-blur sm:px-6 lg:px-8">
       <Link to="/app" className="flex items-center gap-2 lg:hidden">
         <Logo small />
         <span className="text-[15px] font-semibold">{t('appName')}</span>
@@ -139,8 +147,8 @@ function TopBar({ onMenu }: { onMenu: () => void }) {
       <DM.Root>
         <DM.Trigger asChild>
           <button className="hidden items-center gap-2 rounded-full p-0.5 pr-2 hover:bg-sunken sm:flex" aria-label={t('navProfile')}>
-            <Avatar name={profile?.full_name || profile?.email || '?'} />
-            <span className="max-w-[140px] truncate text-[13px] font-medium">{profile?.full_name || profile?.email}</span>
+            <Avatar name={profile?.full_name || profile?.email || '?'} className="size-9" />
+            <span className="max-w-[160px] truncate text-[14px] font-semibold">{profile?.full_name || profile?.email}</span>
           </button>
         </DM.Trigger>
         <DM.Portal>

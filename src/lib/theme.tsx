@@ -9,7 +9,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   );
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark');
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#0E1714' : '#11624B');
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#0C1124' : '#14224D');
     try {
       localStorage.setItem('icf-theme', theme);
     } catch {

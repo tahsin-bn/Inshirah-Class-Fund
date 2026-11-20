@@ -11,7 +11,7 @@ export function AuthLayout({ title, body, children }: { title: string; body?: st
   const { theme, toggle } = useTheme();
   return (
     <div className="grid min-h-dvh lg:grid-cols-[1.1fr_1fr]">
-      <div className="relative hidden overflow-hidden bg-brand lg:block">
+      <div className="relative hidden overflow-hidden bg-[radial-gradient(120%_90%_at_0%_0%,#2B3F8F_0%,#14224D_55%,#0F1A3D_100%)] lg:block">
         <svg className="absolute inset-0 h-full w-full opacity-[0.14]" aria-hidden>
           <defs>
             <pattern id="ledger" width="36" height="36" patternUnits="userSpaceOnUse">
@@ -20,16 +20,16 @@ export function AuthLayout({ title, body, children }: { title: string; body?: st
           </defs>
           <rect width="100%" height="100%" fill="url(#ledger)" />
         </svg>
-        <div className="relative flex h-full flex-col justify-between p-12 text-brand-ink">
+        <div className="relative flex h-full flex-col justify-between p-12 text-white">
           <Link to="/" className="flex items-center gap-3">
-            <Logo className="[&_rect]:fill-[var(--color-brand-ink)] [&_path]:stroke-[var(--color-brand)]" />
+            <Logo className="size-11" />
             <span className="text-[17px] font-semibold">{t('appName')}</span>
           </Link>
           <div className="max-w-md">
             <p className="text-[34px] leading-[1.15] font-semibold tracking-tight">{t('tagline')}</p>
             <div className="mt-8 flex items-end gap-2" aria-hidden>
               {[38, 52, 46, 64, 58, 76, 70, 88].map((h, i) => (
-                <div key={i} className="w-6 origin-bottom rounded-t-[4px] bg-brand-ink/80 animate-[rise_700ms_cubic-bezier(.2,.8,.2,1)_both]" style={{ height: h, animationDelay: `${i * 60}ms`, opacity: 0.35 + i * 0.08 }} />
+                <div key={i} className="w-6 origin-bottom rounded-t-[4px] bg-[linear-gradient(180deg,#8B9BFF,#7B5CE6)] animate-[rise_700ms_cubic-bezier(.2,.8,.2,1)_both]" style={{ height: h, animationDelay: `${i * 60}ms`, opacity: 0.35 + i * 0.08 }} />
               ))}
               <div className="mb-[92px] size-4 rounded-full bg-brass" />
             </div>
