@@ -258,4 +258,6 @@ export interface PublicDashboard {
   categories?: Array<{ month_id: string; name_en: string; name_bn: string; amount: number }>;
   expenses?: Array<{ id: string; month_id: string; title: string; amount: number; spent_on: string; category_en: string; category_bn: string }> | null;
   birthdays_today?: string[] | null;
+  birthdays_month?: Array<{ name: string; day: number }> | null;
+  today?: string;
 }

@@ -1,26 +1,27 @@
 import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Download, HandCoins, Lock, LockOpen, Pencil, Plus, Search } from 'lucide-react';
+import { ArrowLeft, CheckCheck, Download, HandCoins, Lock, LockOpen, Pencil, Plus, Search, X } from 'lucide-react';
+import { toast } from 'sonner';
 import { rpc } from '@/lib/supabase';
 import { useAction, useLedger, useMonthStatuses, useOtherIncome, useSettings, useWaivers } from '@/lib/queries';
 import { useAuth } from '@/lib/auth';
 import { dhakaToday, pct } from '@/lib/format';
 import { PAYMENT_METHODS, type DueStatus, type PaymentMethod } from '@/lib/types';
-import { downloadCsv } from '@/lib/utils';
+import { cn, downloadCsv, uuid } from '@/lib/utils';
 import { useI18n } from '@/i18n/I18nProvider';
 import type { StringKey } from '@/i18n/strings';
 import { Card, CardHeader, Stat } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog, Dialog } from '@/components/ui/dialog';
 import { Field, Input, MoneyInput, Select, Textarea } from '@/components/ui/form';
-import { EmptyState, ErrorState, PageHeader, PageSkeleton, Progress, Segmented } from '@/components/ui/misc';
+import { Checkbox, EmptyState, ErrorState, PageHeader, PageSkeleton, Progress, Segmented } from '@/components/ui/misc';
 import { StatusBadge } from '@/components/ui/badge';
 import { useLookups } from '@/components/domain/lookups';
 import { RecordPaymentDialog } from '@/components/domain/RecordPaymentDialog';
 
 export default function MonthDetail() {
   const { id } = useParams();
-  const { t, money, month, date, pick } = useI18n();
+  const { t, money, num, month, date, pick } = useI18n();
   const { can, role, session } = useAuth();
   const L = useLookups();
   const ledger = useLedger();
@@ -35,6 +36,8 @@ export default function MonthDetail() {
   const [edit, setEdit] = useState(false);
   const [closing, setClosing] = useState(false);
   const [reopening, setReopening] = useState(false);
+  const [sel, setSel] = useState<Set<string>>(new Set());
+  const [bulkOpen, setBulkOpen] = useState(false);
 
   const row = ledger.data?.find((r) => r.month_id === id);
   const fm = id ? L.monthById.get(id) : undefined;
@@ -65,6 +68,17 @@ export default function MonthDetail() {
 
   const isOpen = row.status === 'open';
   const canPay = isOpen && can('admin', 'treasurer', 'collector');
+  // bulk collection is for the main admin only (also enforced in the database)
+  const canBulk = isOpen && can('admin');
+  const remainingOf = new Map((statuses.data ?? []).map((s) => [s.student_id, s.remaining]));
+  const allDueIds = (statuses.data ?? []).filter((s) => s.remaining > 0 && L.studentById.get(s.student_id)?.status === 'active').map((s) => s.student_id);
+  const visibleDueIds = list.filter((x) => x.st.remaining > 0 && x.student!.status === 'active').map((x) => x.st.student_id);
+  const selIds = [...sel].filter((id) => (remainingOf.get(id) ?? 0) > 0);
+  const selTotal = selIds.reduce((a, id) => a + (remainingOf.get(id) ?? 0), 0);
+  const visibleSelected = visibleDueIds.filter((id) => sel.has(id)).length;
+  const headerState: boolean | 'indeterminate' = visibleSelected === 0 ? false : visibleSelected === visibleDueIds.length ? true : 'indeterminate';
+  const toggle = (id: string, on: boolean) => setSel((prev) => { const n = new Set(prev); if (on) n.add(id); else n.delete(id); return n; });
+  const toggleVisible = (on: boolean) => setSel((prev) => { const n = new Set(prev); for (const id of visibleDueIds) { if (on) n.add(id); else n.delete(id); } return n; });
   const waiverOf = new Map((waivers.data ?? []).map((w) => [w.student_id, w]));
 
   const exportCsv = () =>
@@ -88,6 +102,7 @@ export default function MonthDetail() {
         actions={
           <>
             {canPay && <Button onClick={() => setPay({ open: true })}><Plus />{t('recordPayment')}</Button>}
+            {canBulk && allDueIds.length > 0 && <Button variant="secondary" onClick={() => setSel(new Set(allDueIds))}><CheckCheck />{t('bulkSelectAllDue')}</Button>}
             {can('admin') && isOpen && <Button variant="secondary" onClick={() => setEdit(true)}><Pencil />{t('editMonth')}</Button>}
             {can('admin') && isOpen && <Button variant="secondary" onClick={() => setClosing(true)}><Lock />{t('closeMonth')}</Button>}
             {can('admin') && !isOpen && <Button variant="secondary" onClick={() => setReopening(true)}><LockOpen />{t('reopenMonth')}</Button>}
@@ -136,6 +151,11 @@ export default function MonthDetail() {
               <table className="w-full text-[14px]">
                 <thead className="bg-sunken/60 text-left text-[12px] text-ink-3">
                   <tr>
+                    {canBulk && (
+                      <th className="w-10 py-2.5 pl-4">
+                        {visibleDueIds.length > 0 && <Checkbox checked={headerState} onCheckedChange={toggleVisible} label={t('bulkSelectAllDue')} />}
+                      </th>
+                    )}
                     <th className="px-4 py-2.5 font-medium">{t('roll')}</th>
                     <th className="px-4 py-2.5 font-medium">{t('name')}</th>
                     {role !== 'collector' && <th className="px-4 py-2.5 font-medium">{t('collector')}</th>}
@@ -150,7 +170,12 @@ export default function MonthDetail() {
                     const w = waiverOf.get(st.student_id);
                     const mine = role !== 'collector' || L.collectorOf.get(st.student_id) === session?.user.id;
                     return (
-                      <tr key={st.student_id} className="hover:bg-sunken/40">
+                      <tr key={st.student_id} className={cn('hover:bg-sunken/40', sel.has(st.student_id) && 'bg-brand-soft/60 hover:bg-brand-soft')}>
+                        {canBulk && (
+                          <td className="w-10 py-2.5 pl-4">
+                            {st.remaining > 0 && <Checkbox checked={sel.has(st.student_id)} onCheckedChange={(v) => toggle(st.student_id, v)} label={t('selectStudent', { name: student!.name })} />}
+                          </td>
+                        )}
                         <td className="num px-4 py-2.5 text-ink-3">{student!.roll}</td>
                         <td className="px-4 py-2.5"><Link to={`/app/students/${student!.id}`} className="font-medium hover:underline">{student!.name}</Link></td>
                         {role !== 'collector' && <td className="px-4 py-2.5 text-ink-2">{L.collectorOf.get(st.student_id) ? L.personName(L.collectorOf.get(st.student_id)) : <span className="text-ink-3">{t('unassigned')}</span>}</td>}
@@ -173,7 +198,12 @@ export default function MonthDetail() {
             {/* mobile cards */}
             <ul className="divide-y divide-line md:hidden">
               {list.map(({ st, student }) => (
-                <li key={st.student_id} className="flex items-center gap-3 px-4 py-3">
+                <li key={st.student_id} className={cn('flex items-center gap-3 px-4 py-3', sel.has(st.student_id) && 'bg-brand-soft/60')}>
+                  {canBulk && (
+                    <span className="grid w-5 place-items-center">
+                      {st.remaining > 0 && <Checkbox checked={sel.has(st.student_id)} onCheckedChange={(v) => toggle(st.student_id, v)} label={t('selectStudent', { name: student!.name })} />}
+                    </span>
+                  )}
                   <div className="min-w-0 flex-1">
                     <Link to={`/app/students/${student!.id}`} className="block truncate text-[14px] font-medium">{student!.name}</Link>
                     <div className="num text-[12px] text-ink-3">{t('roll')} {student!.roll} · {t('remaining')} {money(st.remaining)}</div>
@@ -190,6 +220,28 @@ export default function MonthDetail() {
       </Card>
 
       {settings?.other_income_enabled && can('admin', 'treasurer', 'auditor') && <OtherIncomeCard monthId={row.month_id} open={isOpen} />}
+
+      {canBulk && selIds.length > 0 && (
+        <div className="sticky bottom-[76px] z-20 md:bottom-4">
+          <div className="mx-auto flex max-w-xl items-center gap-3 rounded-[14px] border border-line bg-ink px-4 py-3 text-paper shadow-[0_12px_32px_-12px_rgba(0,0,0,.45)] dark:bg-surface dark:text-ink">
+            <div className="min-w-0 flex-1 text-[14px]">
+              <span className="num font-semibold">{t('bulkSelected', { n: num(selIds.length), a: money(selTotal) })}</span>
+            </div>
+            <Button size="icon-sm" variant="ghost" className="text-current hover:bg-white/10" aria-label={t('bulkClear')} onClick={() => setSel(new Set())}><X /></Button>
+            <Button size="sm" onClick={() => setBulkOpen(true)}><CheckCheck />{t('bulkCollect')}</Button>
+          </div>
+        </div>
+      )}
+      {canBulk && (
+        <BulkCollectDialog
+          open={bulkOpen}
+          onOpenChange={setBulkOpen}
+          monthId={row.month_id}
+          ids={selIds}
+          total={selTotal}
+          onDone={() => { setSel(new Set()); setBulkOpen(false); }}
+        />
+      )}
 
       <RecordPaymentDialog open={pay.open} onOpenChange={(o) => setPay({ open: o })} monthId={id} studentId={pay.student} />
       <WaiverDialog studentId={waive} monthId={id!} onClose={() => setWaive(null)} remaining={statuses.data?.find((s) => s.student_id === waive)?.remaining ?? 0} />
@@ -312,5 +364,68 @@ function OtherIncomeCard({ monthId, open }: { monthId: string; open: boolean }) 
       <ConfirmDialog open={!!voiding} onOpenChange={(o) => !o && setVoiding(null)} title={t('reject')} confirmLabel={t('confirm')} reasonLabel={t('reason')} danger loading={voidI.isPending}
         onConfirm={async (r) => { await voidI.mutateAsync(r).catch(() => {}); setVoiding(null); }} />
     </Card>
+  );
+}
+
+function BulkCollectDialog({ open, onOpenChange, monthId, ids, total, onDone }: {
+  open: boolean; onOpenChange: (o: boolean) => void; monthId: string; ids: string[]; total: number; onDone: () => void;
+}) {
+  const { t, money, num } = useI18n();
+  const L = useLookups();
+  const [method, setMethod] = useState<PaymentMethod>('cash');
+  const [paidOn, setPaidOn] = useState(dhakaToday());
+  const [ref, setRef] = useState('');
+  const [note, setNote] = useState('');
+  // one request id per opening, so a double click can never record twice
+  const [clientRef, setClientRef] = useState(uuid());
+  const save = useAction(
+    () => rpc<{ count: number; total: number; skipped: number; already_recorded: number }>('record_bulk_payments', {
+      p_month: monthId, p_students: ids, p_method: method, p_paid_on: paidOn, p_client_ref: clientRef,
+      p_transaction_ref: ref.trim() || null, p_note: note.trim() || null,
+    }),
+  );
+  const needsRef = method !== 'cash';
+  const valid = ids.length > 0 && (!needsRef || ref.trim().length > 0) && paidOn <= dhakaToday();
+  const names = ids.map((id) => L.studentById.get(id)?.name).filter(Boolean) as string[];
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(o) => { onOpenChange(o); if (o) setClientRef(uuid()); }}
+      title={t('bulkTitle', { n: num(ids.length) })}
+      description={t('bulkBody')}
+      footer={
+        <>
+          <Button variant="secondary" onClick={() => onOpenChange(false)}>{t('cancel')}</Button>
+          <Button disabled={!valid} loading={save.isPending} onClick={async () => {
+            try {
+              const r = await save.mutateAsync(undefined);
+              toast.success(t('bulkDone', { n: num(r.count + r.already_recorded), a: money(r.total) }));
+              if (r.skipped) toast.message(t('bulkSkipped', { n: num(r.skipped) }));
+              setRef(''); setNote('');
+              onDone();
+            } catch { /* toast already shown */ }
+          }}>{t('bulkConfirm', { n: num(ids.length) })}</Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <div className="rounded-[12px] bg-brand-soft px-4 py-3">
+          <div className="text-[13px] text-ink-2">{t('bulkTotal')}</div>
+          <div className="num text-[26px] font-semibold text-brand">{money(total)}</div>
+          <p className="mt-1 line-clamp-2 text-[12px] text-ink-3">{names.slice(0, 6).join(', ')}{names.length > 6 ? ` +${num(names.length - 6)}` : ''}</p>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label={t('method')}>
+            <Select value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)}>
+              {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{t(`method_${m}` as StringKey)}</option>)}
+            </Select>
+          </Field>
+          <Field label={t('date')}><Input type="date" value={paidOn} max={dhakaToday()} onChange={(e) => setPaidOn(e.target.value)} /></Field>
+        </div>
+        {needsRef && <Field label={t('txRef')} hint={t('txRefHint')}><Input value={ref} onChange={(e) => setRef(e.target.value)} /></Field>}
+        <Field label={<>{t('note')} <span className="text-ink-3">({t('optional')})</span></>}><Input value={note} onChange={(e) => setNote(e.target.value)} /></Field>
+      </div>
+    </Dialog>
   );
 }
