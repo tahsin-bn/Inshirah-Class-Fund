@@ -198,7 +198,7 @@ export function TodayBirthdayCard({ names, next, wishLabel = true }: { names: st
         ) : undefined}
       />
       {has ? (
-        <div className="relative flex flex-col items-center gap-4 px-5 py-6 text-center sm:flex-row sm:items-center sm:gap-5 sm:px-7 sm:text-left">
+        <div className="relative flex flex-col items-center gap-4 px-5 py-6 text-center sm:px-7 xl:flex-row xl:gap-5 xl:text-left">
           <Confetti />
           <div className="relative shrink-0">
             <div className="flex -space-x-5">
@@ -211,7 +211,7 @@ export function TodayBirthdayCard({ names, next, wishLabel = true }: { names: st
             <div className="mt-0.5 text-[18px] font-bold text-violet sm:text-[22px]">{t('happyBirthday')}!</div>
             <p className="mt-3 rounded-[14px] bg-violet-soft px-4 py-3 text-[14px] leading-relaxed text-ink-2">“{t('wishQuote')}”</p>
           </div>
-          <CakeArt className="relative hidden w-[130px] shrink-0 md:block" />
+          <CakeArt className="relative hidden w-[130px] shrink-0 xl:block" />
         </div>
       ) : (
         <div className="flex items-center gap-4 px-5 py-7 sm:px-7">
