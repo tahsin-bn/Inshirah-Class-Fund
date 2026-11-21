@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Download, Plus, ReceiptText, Undo2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { BarButton, BulkBar, RowBox, SelectAllBox, exportSelected, useSelection } from '@/components/domain/Bulk';
 import { rpc, supabase } from '@/lib/supabase';
 import { useAction, usePayments } from '@/lib/queries';
 import { useAuth } from '@/lib/auth';
@@ -19,7 +21,7 @@ import { RecordPaymentDialog } from '@/components/domain/RecordPaymentDialog';
 import { ReceiptView } from '@/components/domain/ReceiptView';
 
 export default function Payments() {
-  const { t, money, date, month } = useI18n();
+  const { t, money, date, month, num } = useI18n();
   const { can } = useAuth();
   const L = useLookups();
   const [monthId, setMonthId] = useState('');
@@ -34,6 +36,10 @@ export default function Payments() {
   const rows = data?.rows ?? [];
   const reversedIds = new Set(rows.filter((r) => r.reversal_of).map((r) => r.reversal_of!));
   const staff = L.profiles.filter((p) => ['admin', 'treasurer', 'collector'].includes(p.role));
+  const sel = useSelection(rows.map((r) => r.id));
+  const chosen = rows.filter((r) => sel.has(r.id));
+  const [bulkReverse, setBulkReverse] = useState(false);
+  const reverseMany = useAction((reason: string) => rpc<{ done: number; total: number; skipped: number }>('bulk_reverse_payments', { p_ids: sel.selected, p_reason: reason }));
 
   const exportAll = async () => {
     let q = supabase.from('payments').select('*').order('created_at', { ascending: false }).limit(5000);
@@ -67,6 +73,11 @@ export default function Payments() {
             <option value="">{t('month')}: {t('all')}</option>
             {L.months.map((m) => <option key={m.id} value={m.id}>{month(m)}</option>)}
           </Select>
+          {rows.length > 0 && (
+            <label className="flex h-10 cursor-pointer items-center gap-2 rounded-[10px] border border-line px-3 text-[14px] font-medium sm:order-last lg:col-start-4">
+              <SelectAllBox s={sel} visible={rows.map((r) => r.id)} /> {t('selectAll')}
+            </label>
+          )}
           {can('admin', 'treasurer', 'auditor') && (
             <Select value={collectorId} onChange={(e) => { setCollectorId(e.target.value); setPage(0); }} aria-label={t('receivedBy')}>
               <option value="">{t('receivedBy')}: {t('all')}</option>
@@ -86,7 +97,8 @@ export default function Payments() {
               const isReversal = !!p.reversal_of;
               const wasReversed = reversedIds.has(p.id);
               return (
-                <li key={p.id} className={cn('flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 sm:flex-nowrap', (isReversal || wasReversed) && 'bg-sunken/50')}>
+                <li key={p.id} className={cn('flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 sm:flex-nowrap', (isReversal || wasReversed) && 'bg-sunken/50', sel.has(p.id) && 'bg-brand-soft/60')}>
+                  <RowBox s={sel} id={p.id} label={p.receipt_no} />
                   <button className="min-w-0 flex-1 text-left" onClick={() => setReceipt(p)}>
                     <div className="flex items-center gap-2">
                       <span className="truncate text-[14px] font-medium">{s ? <>{s.name} <span className="num text-ink-3">· {s.roll}</span></> : '—'}</span>
@@ -108,6 +120,34 @@ export default function Payments() {
         )}
         <Pagination page={page} total={data?.count ?? 0} size={size} onPage={setPage} />
       </Card>
+
+      <BulkBar s={sel} summary={money(chosen.reduce((a, p) => a + p.amount, 0))}>
+        <BarButton onClick={() => exportSelected('payments-selected.csv', chosen, [
+          ['Receipt', (p) => p.receipt_no], ['Date', (p) => p.paid_on], ['Roll', (p) => L.studentById.get(p.student_id)?.roll],
+          ['Student', (p) => L.studentById.get(p.student_id)?.name], ['Month', (p) => L.monthById.get(p.month_id)?.title_en],
+          ['Amount', (p) => p.amount], ['Method', (p) => p.method], ['Transaction ID', (p) => p.transaction_ref],
+          ['Received by', (p) => L.personName(p.collected_by)], ['Note', (p) => p.note],
+        ])}><Download />{t('csvSelected')}</BarButton>
+        {can('admin', 'treasurer') && <BarButton danger onClick={() => setBulkReverse(true)}><Undo2 />{t('reverseSelected')}</BarButton>}
+      </BulkBar>
+      <ConfirmDialog
+        open={bulkReverse}
+        onOpenChange={setBulkReverse}
+        title={t('reverseManyTitle', { n: num(sel.count) })}
+        body={t('reverseManyBody')}
+        confirmLabel={t('reverseSelected')}
+        reasonLabel={t('bulkReason')}
+        danger
+        loading={reverseMany.isPending}
+        onConfirm={async (reason) => {
+          try {
+            const r = await reverseMany.mutateAsync(reason);
+            toast.success(t('paymentsReversed', { n: num(r.done), a: money(r.total) }));
+            if (r.skipped) toast.message(t('bulkSkippedN', { n: num(r.skipped) }));
+            sel.clear(); setBulkReverse(false);
+          } catch { /* toast shown */ }
+        }}
+      />
 
       <RecordPaymentDialog open={payOpen} onOpenChange={setPayOpen} />
       <Dialog open={!!receipt} onOpenChange={(o) => !o && setReceipt(null)} title={t('receipt')} size="sm"

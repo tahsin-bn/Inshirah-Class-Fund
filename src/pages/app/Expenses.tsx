@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Check, Download, FileText, Paperclip, Pencil, Plus, Tags, Wallet, X } from 'lucide-react';
+import { Ban, Check, Download, FileText, Paperclip, Pencil, Plus, Tags, Wallet, X } from 'lucide-react';
+import { BarButton, BulkBar, RowBox, SelectAllBox, exportSelected, useSelection } from '@/components/domain/Bulk';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { rpc, supabase, errorMessage } from '@/lib/supabase';
@@ -21,7 +22,7 @@ import { CategoryBars } from '@/components/charts/CategoryBars';
 import { useLookups } from '@/components/domain/lookups';
 
 export default function Expenses() {
-  const { t, money, date, month, pick } = useI18n();
+  const { t, money, date, month, pick, num } = useI18n();
   const { can, session } = useAuth();
   const L = useLookups();
   const [monthId, setMonthId] = useState('');
@@ -50,6 +51,23 @@ export default function Expenses() {
       return acc;
     }, {}),
   );
+
+  const sel = useSelection(list.map((e) => e.id));
+  const chosen = list.filter((e) => sel.has(e.id));
+  const [bulk, setBulk] = useState<null | 'approve' | 'reject' | 'void' | 'deficit'>(null);
+  type BulkRes = { done: number; total: number; skipped: number };
+  const decideMany = useAction((a: { approve: boolean; reason?: string; allow?: boolean }) =>
+    rpc<BulkRes>('bulk_decide_expenses', { p_ids: sel.selected, p_approve: a.approve, p_reason: a.reason || null, p_allow_deficit: !!a.allow }));
+  const voidMany = useAction((reason: string) => rpc<BulkRes>('bulk_void_expenses', { p_ids: sel.selected, p_reason: reason }));
+  const bulkDone = (r: BulkRes) => {
+    toast.success(t('expensesDone', { n: num(r.done), a: money(r.total) }));
+    if (r.skipped) toast.message(t('bulkSkippedN', { n: num(r.skipped) }));
+    sel.clear(); setBulk(null);
+  };
+  const runApprove = async (allow: boolean) => {
+    try { bulkDone(await decideMany.mutateAsync({ approve: true, allow })); }
+    catch (err) { if (!allow && err instanceof Error && err.message.startsWith('DEFICIT')) setBulk('deficit'); }
+  };
 
   const tryApprove = async (e: Expense) => {
     try {
@@ -100,6 +118,11 @@ export default function Expenses() {
             { value: 'void', label: t('st_void'), count: all.filter((e) => e.status === 'void').length },
           ]} />
           <div className="grid grid-cols-2 gap-3 lg:ml-auto lg:flex">
+            {list.length > 0 && (
+              <label className="col-span-2 flex h-10 cursor-pointer items-center gap-2 rounded-[10px] border border-line px-3 text-[14px] font-medium lg:col-span-1">
+                <SelectAllBox s={sel} visible={list.map((e) => e.id)} /> {t('selectAll')}
+              </label>
+            )}
             <Select value={monthId} onChange={(e) => setMonthId(e.target.value)} aria-label={t('month')}>
               <option value="">{t('month')}: {t('all')}</option>
               {L.months.map((m) => <option key={m.id} value={m.id}>{month(m)}</option>)}
@@ -118,7 +141,8 @@ export default function Expenses() {
               const own = e.submitted_by === session?.user.id;
               const open = m?.status === 'open';
               return (
-                <li key={e.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 sm:flex-nowrap">
+                <li key={e.id} className={cn('flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 sm:flex-nowrap', sel.has(e.id) && 'bg-brand-soft/60')}>
+                  <RowBox s={sel} id={e.id} label={e.title} />
                   <button className="min-w-0 flex-1 text-left" onClick={() => setViewing(e)}>
                     <div className="flex items-center gap-2">
                       <span className="truncate text-[14px] font-medium">{e.title}</span>
@@ -135,6 +159,9 @@ export default function Expenses() {
                         <Button size="sm" variant="danger-ghost" onClick={() => setRejecting(e)}><X />{t('reject')}</Button>
                       </>
                     )}
+                    {e.status === 'pending' && own && open && can('admin', 'treasurer') && (
+                      <span className="hidden max-w-[180px] text-right text-[12px] leading-tight text-warn md:block">{t('needsOtherApprover')}</span>
+                    )}
                     {e.status === 'pending' && own && open && <Button size="icon-sm" variant="ghost" aria-label={t('edit')} onClick={() => setEditing(e)}><Pencil /></Button>}
                   </div>
                 </li>
@@ -146,6 +173,31 @@ export default function Expenses() {
 
       <ExpenseDialog expense={editing} onClose={() => setEditing(null)} />
       <ExpenseDetail expense={viewing} onClose={() => setViewing(null)} onVoid={(e) => { setViewing(null); setVoiding(e); }} />
+      <BulkBar s={sel} summary={money(chosen.reduce((a, e) => a + e.amount, 0))}>
+        <BarButton onClick={() => exportSelected('expenses-selected.csv', chosen, [
+          ['No', (e) => e.expense_no], ['Date', (e) => e.spent_on], ['Title', (e) => e.title], ['Category', (e) => L.categoryById.get(e.category_id)?.name_en],
+          ['Month', (e) => L.monthById.get(e.month_id)?.title_en], ['Amount', (e) => e.amount], ['Method', (e) => e.payment_method], ['Status', (e) => e.status],
+          ['Submitted by', (e) => L.personName(e.submitted_by)], ['Decided by', (e) => L.personName(e.decided_by)], ['Reason', (e) => e.rejection_reason ?? e.void_reason],
+        ])}><Download />{t('csvSelected')}</BarButton>
+        {can('admin', 'treasurer') && chosen.some((e) => e.status === 'pending') && (
+          <>
+            <BarButton onClick={() => setBulk('approve')}><Check />{t('approveSelected')}</BarButton>
+            <BarButton onClick={() => setBulk('reject')}><X />{t('rejectSelected')}</BarButton>
+          </>
+        )}
+        {can('admin') && <BarButton danger onClick={() => setBulk('void')}><Ban />{t('voidSelected')}</BarButton>}
+      </BulkBar>
+      <ConfirmDialog open={bulk === 'approve'} onOpenChange={(o) => !o && setBulk(null)} title={t('approveManyTitle', { n: num(sel.count) })} body={t('approveManyBody')}
+        confirmLabel={t('approveSelected')} loading={decideMany.isPending} onConfirm={() => runApprove(false)} />
+      <ConfirmDialog open={bulk === 'deficit'} onOpenChange={(o) => !o && setBulk(null)} title={t('deficitTitle')} body={t('deficitConfirm')}
+        confirmLabel={t('approveDeficit')} danger loading={decideMany.isPending} onConfirm={() => runApprove(true)} />
+      <ConfirmDialog open={bulk === 'reject'} onOpenChange={(o) => !o && setBulk(null)} title={t('rejectManyTitle', { n: num(sel.count) })} body={t('approveManyBody')}
+        confirmLabel={t('rejectSelected')} reasonLabel={t('rejectReason')} minReason={3} danger loading={decideMany.isPending}
+        onConfirm={async (reason) => { try { bulkDone(await decideMany.mutateAsync({ approve: false, reason })); } catch { /* toast shown */ } }} />
+      <ConfirmDialog open={bulk === 'void'} onOpenChange={(o) => !o && setBulk(null)} title={t('voidManyTitle', { n: num(sel.count) })} body={t('voidManyBody')}
+        confirmLabel={t('voidSelected')} reasonLabel={t('bulkReason')} danger loading={voidMany.isPending}
+        onConfirm={async (reason) => { try { bulkDone(await voidMany.mutateAsync(reason)); } catch { /* toast shown */ } }} />
+
       <ConfirmDialog open={!!rejecting} onOpenChange={(o) => !o && setRejecting(null)} title={t('reject')} body={rejecting && <>{rejecting.title} · {money(rejecting.amount)}</>} confirmLabel={t('reject')} reasonLabel={t('rejectReason')} minReason={3} danger loading={reject.isPending}
         onConfirm={async (r) => { await reject.mutateAsync(r).catch(() => {}); setRejecting(null); }} />
       <ConfirmDialog open={!!voiding} onOpenChange={(o) => !o && setVoiding(null)} title={t('voidExpense')} body={voiding && <>{voiding.title} · {money(voiding.amount)}</>} confirmLabel={t('voidExpense')} reasonLabel={t('reason')} danger loading={voidE.isPending}

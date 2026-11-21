@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Papa from 'papaparse';
-import { Archive, ArchiveRestore, Download, FileUp, Pencil, Search, UserPlus, Users } from 'lucide-react';
+import { Archive, ArchiveRestore, CalendarDays, Download, FileUp, Pencil, Search, Trash2, UserCheck, UserPlus, Users } from 'lucide-react';
+import { BarButton, BulkBar, RowBox, SelectAllBox, exportSelected, useSelection } from '@/components/domain/Bulk';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { supabase, errorMessage } from '@/lib/supabase';
+import { rpc, supabase, errorMessage } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { useAction } from '@/lib/queries';
 import type { Student } from '@/lib/types';
@@ -20,9 +21,10 @@ import { EmptyState, PageHeader, PageSkeleton, Segmented } from '@/components/ui
 import { useLookups } from '@/components/domain/lookups';
 
 export default function Students() {
-  const { t, date } = useI18n();
+  const { t, date, num } = useI18n();
   const { can } = useAuth();
   const L = useLookups();
+  const [bulk, setBulk] = useState<null | 'delete' | 'assign' | 'joined'>(null);
   const [q, setQ] = useState('');
   const [status, setStatus] = useState<'active' | 'archived' | 'all'>('active');
   const [group, setGroup] = useState('');
@@ -51,8 +53,14 @@ export default function Students() {
     { success: t('saved'), extraKeys: ['students'] },
   );
 
+  const sel = useSelection(list.map((x) => x.id));
+  const chosen = list.filter((x) => sel.has(x.id));
+  const removeMany = useAction((reason: string) => rpc<{ archived: number; deleted: number; skipped: number }>('bulk_remove_students', { p_ids: sel.selected, p_reason: reason }), { extraKeys: ['students'] });
+  const restoreMany = useAction(() => rpc<number>('bulk_restore_students', { p_ids: sel.selected }), { extraKeys: ['students'] });
+
   if (L.loading) return <PageSkeleton />;
   const collectors = L.profiles.filter((p) => p.role === 'collector');
+  const isAdmin = can('admin');
 
   return (
     <div>
@@ -105,6 +113,7 @@ export default function Students() {
             <table className="w-full text-[14px]">
               <thead className="bg-sunken/60 text-left text-[12px] text-ink-3">
                 <tr>
+                  <th className="w-10 py-2.5 pl-4"><SelectAllBox s={sel} visible={list.map((x) => x.id)} /></th>
                   <th className="px-4 py-2.5 font-medium">{t('roll')}</th>
                   <th className="px-4 py-2.5 font-medium">{t('name')}</th>
                   <th className="hidden px-4 py-2.5 font-medium md:table-cell">{t('phone')}</th>
@@ -116,7 +125,8 @@ export default function Students() {
               </thead>
               <tbody className="divide-y divide-line">
                 {list.map((s) => (
-                  <tr key={s.id} className="hover:bg-sunken/40">
+                  <tr key={s.id} className={cn('hover:bg-sunken/40', sel.has(s.id) && 'bg-brand-soft/60 hover:bg-brand-soft')}>
+                    <td className="w-10 py-2.5 pl-4"><RowBox s={sel} id={s.id} label={s.name} /></td>
                     <td className="num px-4 py-2.5 text-ink-3">{s.roll}</td>
                     <td className="px-4 py-2.5">
                       <Link to={`/app/students/${s.id}`} className="font-medium hover:underline">{s.name}</Link>
@@ -143,6 +153,43 @@ export default function Students() {
           </div>
         )}
       </Card>
+
+      <BulkBar s={sel}>
+        <BarButton onClick={() => exportSelected('students-selected.csv', chosen, [
+          ['roll', (x) => x.roll], ['name', (x) => x.name], ['phone', (x) => x.phone], ['email', (x) => x.email], ['birthdate', (x) => x.birthdate],
+          ['joined', (x) => x.joined_on], ['class', (x) => x.class_name], ['group', (x) => x.group_name], ['status', (x) => x.status],
+          ['collector', (x) => L.personName(L.collectorOf.get(x.id))],
+        ])}><Download />{t('csvSelected')}</BarButton>
+        {isAdmin && <BarButton onClick={() => setBulk('assign')}><UserCheck />{t('assignSelected')}</BarButton>}
+        {isAdmin && <BarButton onClick={() => setBulk('joined')}><CalendarDays />{t('setJoinedSelected')}</BarButton>}
+        {isAdmin && chosen.some((x) => x.status === 'archived') && (
+          <BarButton onClick={async () => {
+            try { const n = await restoreMany.mutateAsync(undefined); toast.success(t('studentsRestored', { n: num(n) })); sel.clear(); } catch { /* toast shown */ }
+          }}><ArchiveRestore />{t('restoreSelected')}</BarButton>
+        )}
+        {isAdmin && <BarButton danger onClick={() => setBulk('delete')}><Trash2 />{t('bulkDelete')}</BarButton>}
+      </BulkBar>
+      <ConfirmDialog
+        open={bulk === 'delete'}
+        onOpenChange={(o) => !o && setBulk(null)}
+        title={t('removeStudentsTitle', { n: num(sel.count) })}
+        body={t('removeStudentsBody')}
+        confirmLabel={t('bulkDelete')}
+        danger
+        reasonLabel={t('bulkReason')}
+        minReason={3}
+        loading={removeMany.isPending}
+        onConfirm={async (reason) => {
+          try {
+            const r = await removeMany.mutateAsync(reason);
+            toast.success(t('studentsRemoved', { a: num(r.archived), d: num(r.deleted) }));
+            if (r.skipped) toast.message(t('bulkSkippedN', { n: num(r.skipped) }));
+            sel.clear(); setBulk(null);
+          } catch { /* toast shown */ }
+        }}
+      />
+      <AssignManyDialog open={bulk === 'assign'} onClose={() => setBulk(null)} ids={sel.selected} collectors={collectors} onDone={sel.clear} />
+      <JoinedManyDialog open={bulk === 'joined'} onClose={() => setBulk(null)} ids={sel.selected} onDone={sel.clear} />
 
       <StudentDialog student={editing} onClose={() => setEditing(null)} onSaved={() => qc.invalidateQueries({ queryKey: ['students'] })} />
       <ImportDialog open={importing} onOpenChange={setImporting} existing={L.students} />
@@ -323,6 +370,48 @@ function ImportDialog({ open, onOpenChange, existing }: { open: boolean; onOpenC
           {!ok.length && <p className="mt-2 text-[13px] text-bad">{t('importNothing')}</p>}
         </div>
       )}
+    </Dialog>
+  );
+}
+
+function AssignManyDialog({ open, onClose, ids, collectors, onDone }: { open: boolean; onClose: () => void; ids: string[]; collectors: { id: string; full_name: string | null; email: string | null }[]; onDone: () => void }) {
+  const { t, num } = useI18n();
+  const [who, setWho] = useState('');
+  const save = useAction(() => rpc<number>('assign_students', { p_collector: who || null, p_students: ids }), { extraKeys: ['students', 'assignments'] });
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()} title={t('assignManyTitle', { n: num(ids.length) })} size="sm"
+      footer={<>
+        <Button variant="secondary" onClick={onClose}>{t('cancel')}</Button>
+        <Button loading={save.isPending} onClick={async () => {
+          try { await save.mutateAsync(undefined); toast.success(t('studentsAssigned', { n: num(ids.length) })); onDone(); onClose(); } catch { /* toast shown */ }
+        }}>{t('save')}</Button>
+      </>}>
+      <Field label={t('collector')}>
+        <Select value={who} onChange={(e) => setWho(e.target.value)}>
+          <option value="">{t('assignNone')}</option>
+          {collectors.map((p) => <option key={p.id} value={p.id}>{p.full_name || p.email}</option>)}
+        </Select>
+      </Field>
+    </Dialog>
+  );
+}
+
+function JoinedManyDialog({ open, onClose, ids, onDone }: { open: boolean; onClose: () => void; ids: string[]; onDone: () => void }) {
+  const { t, num } = useI18n();
+  const [d, setD] = useState('');
+  const save = useAction(async () => {
+    const { error } = await supabase.from('students').update({ joined_on: d }).in('id', ids);
+    if (error) throw new Error(errorMessage(error));
+  }, { success: t('saved'), extraKeys: ['students'] });
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()} title={t('setJoinedTitle', { n: num(ids.length) })} description={t('setJoinedBody')} size="sm"
+      footer={<>
+        <Button variant="secondary" onClick={onClose}>{t('cancel')}</Button>
+        <Button disabled={!d} loading={save.isPending} onClick={async () => {
+          try { await save.mutateAsync(undefined); onDone(); onClose(); } catch { /* toast shown */ }
+        }}>{t('save')}</Button>
+      </>}>
+      <Field label={t('setJoinedSelected')}><Input type="date" value={d} max={dhakaToday()} onChange={(e) => setD(e.target.value)} /></Field>
     </Dialog>
   );
 }

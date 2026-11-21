@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { CalendarPlus, ChevronRight } from 'lucide-react';
+import { CalendarPlus, ChevronRight, Download, Lock, LockOpen, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { rpc } from '@/lib/supabase';
 import { useAction, useLedger } from '@/lib/queries';
 import { useAuth } from '@/lib/auth';
@@ -16,23 +17,48 @@ import { Field, Input, MoneyInput, Select, Textarea } from '@/components/ui/form
 import { EmptyState, ErrorState, PageHeader, PageSkeleton, Progress } from '@/components/ui/misc';
 import { StatusBadge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { ConfirmDialog } from '@/components/ui/dialog';
+import { BarButton, BulkBar, RowBox, SelectAllBox, exportSelected, useSelection } from '@/components/domain/Bulk';
+import type { LedgerRow } from '@/lib/types';
 
 export default function Months() {
   const { t, money, num, month, date } = useI18n();
   const { can } = useAuth();
   const { data, isLoading, error, refetch } = useLedger();
   const [open, setOpen] = useState(false);
+  const [confirm, setConfirm] = useState<null | 'delete' | 'close' | 'reopen'>(null);
+  const rows = [...(data ?? [])].reverse();
+  const isAdmin = can('admin');
+  const s = useSelection(isAdmin ? rows.map((r) => r.month_id) : []);
+  const chosen = rows.filter((r) => s.has(r.month_id));
+
+  const del = useAction((reason: string) => rpc<{ deleted: number; skipped: number }>('bulk_delete_months', { p_ids: s.selected, p_reason: reason }), { extraKeys: ['months'] });
+  const setStatus = useAction(
+    (a: { close: boolean; reason: string }) => rpc<{ done: number; skipped: number }>('bulk_set_months_status', { p_ids: s.selected, p_close: a.close, p_reason: a.reason || null }),
+    { extraKeys: ['months'] },
+  );
+  const skipped = (n: number) => { if (n) toast.message(t('bulkSkippedN', { n: num(n) })); };
 
   if (isLoading) return <PageSkeleton />;
   if (error) return <ErrorState error={error} onRetry={() => refetch()} />;
-  const rows = [...(data ?? [])].reverse();
 
   return (
     <div>
       <PageHeader
         title={t('navMonths')}
         description={t('publicLedgerHint')}
-        actions={can('admin') && <Button onClick={() => setOpen(true)}><CalendarPlus />{t('newMonth')}</Button>}
+        actions={
+          isAdmin && (
+            <>
+              {rows.length > 0 && (
+                <label className="flex h-10 cursor-pointer items-center gap-2 rounded-[10px] border border-line bg-surface px-3 text-[14px] font-medium">
+                  <SelectAllBox s={s} visible={rows.map((r) => r.month_id)} /> {t('selectAll')}
+                </label>
+              )}
+              <Button onClick={() => setOpen(true)}><CalendarPlus />{t('newMonth')}</Button>
+            </>
+          )
+        }
       />
       {rows.length === 0 ? (
         <Card><EmptyState icon={<CalendarPlus />} title={t('noMonthCta')} action={can('admin') ? <Button onClick={() => setOpen(true)}>{t('newMonth')}</Button> : undefined} /></Card>
@@ -40,9 +66,10 @@ export default function Months() {
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {rows.map((r) => (
             <Link key={r.month_id} to={`/app/months/${r.month_id}`} className="group">
-              <Card className={cn('h-full p-5 transition-colors group-hover:border-line-strong', r.status === 'open' && 'ring-1 ring-brand/20')}>
+              <Card className={cn('h-full p-5 transition-colors group-hover:border-line-strong', r.status === 'open' && 'ring-1 ring-brand/20', s.has(r.month_id) && 'border-brand bg-brand-soft/40 ring-2 ring-brand/40')}>
                 <div className="flex items-start justify-between gap-2">
-                  <div>
+                  {isAdmin && <span className="pt-1"><RowBox s={s} id={r.month_id} label={month(r)} /></span>}
+                  <div className="min-w-0 flex-1">
                     <h2 className="text-[17px] font-semibold">{month(r)}</h2>
                     <p className="num text-[13px] text-ink-3">
                       {money(r.contribution_amount + r.special_amount)} {t('perStudent')}
@@ -71,6 +98,51 @@ export default function Months() {
           ))}
         </div>
       )}
+      <BulkBar s={s}>
+        <BarButton onClick={() => exportSelected<LedgerRow>('months.csv', chosen, [
+          ['Month', (r) => month(r)], ['Status', (r) => r.status], ['Per student', (r) => r.contribution_amount + r.special_amount],
+          ['Expected', (r) => r.expected], ['Collected', (r) => r.collected], ['Expenses', (r) => r.expenses], ['Closing balance', (r) => r.closing_balance],
+        ])}><Download />{t('csvSelected')}</BarButton>
+        <BarButton onClick={() => setConfirm('close')}><Lock />{t('closeSelected')}</BarButton>
+        <BarButton onClick={() => setConfirm('reopen')}><LockOpen />{t('reopenSelected')}</BarButton>
+        <BarButton danger onClick={() => setConfirm('delete')}><Trash2 />{t('bulkDelete')}</BarButton>
+      </BulkBar>
+
+      <ConfirmDialog
+        open={confirm === 'delete'}
+        onOpenChange={(o) => !o && setConfirm(null)}
+        title={t('deleteMonthsTitle', { n: num(s.count) })}
+        body={t('deleteMonthsBody')}
+        confirmLabel={t('bulkDelete')}
+        danger
+        reasonLabel={t('bulkReason')}
+        minReason={3}
+        loading={del.isPending}
+        onConfirm={async (reason) => {
+          try {
+            const r = await del.mutateAsync(reason);
+            toast.success(t('monthsDeleted', { n: num(r.deleted) })); skipped(r.skipped);
+            s.clear(); setConfirm(null);
+          } catch { /* toast shown */ }
+        }}
+      />
+      <ConfirmDialog
+        open={confirm === 'close' || confirm === 'reopen'}
+        onOpenChange={(o) => !o && setConfirm(null)}
+        title={confirm === 'reopen' ? t('reopenMonthsTitle', { n: num(s.count) }) : t('closeMonthsTitle', { n: num(s.count) })}
+        body={confirm === 'close' ? t('closeMonthsBody') : undefined}
+        confirmLabel={confirm === 'reopen' ? t('reopenSelected') : t('closeSelected')}
+        reasonLabel={confirm === 'reopen' ? t('bulkReason') : undefined}
+        loading={setStatus.isPending}
+        onConfirm={async (reason) => {
+          try {
+            const r = await setStatus.mutateAsync({ close: confirm === 'close', reason });
+            toast.success(t('monthsUpdated', { n: num(r.done) })); skipped(r.skipped);
+            s.clear(); setConfirm(null);
+          } catch { /* toast shown */ }
+        }}
+      />
+
       <CreateMonthDialog open={open} onOpenChange={setOpen} existing={(data ?? []).map((r) => `${r.year}-${r.month}`)} />
     </div>
   );
